@@ -1,0 +1,15 @@
+{
+  "name": "bus37",
+  "version": "1.0.0",
+  "description": "Time tracking for busses #37 Kyiv",
+  "main": "index.js",
+  "scripts": {
+	"start": "node index.js",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "request": "^2.83.0"
+  }
+}
