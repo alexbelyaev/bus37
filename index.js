@@ -50,7 +50,7 @@ var server = http.createServer(function(request, response) {
   response.write(respBody);
   response.end();
 });
-server.listen(80);
+server.listen(8080);
 
 request(options, callback);
 
@@ -195,7 +195,7 @@ MouseEnter = function(a) {
 
 function log(msg){
     var t = new Date().toTimeString().slice(0,8);
-    //console.log(t+"  "+msg);
+    //dconsole.log(t+"  "+msg);
     //logs.push(t+"  "+msg);
 };
 
