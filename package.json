@@ -4,12 +4,13 @@
   "description": "Time tracking for busses #37 Kyiv",
   "main": "index.js",
   "scripts": {
-	"start": "node index.js",
+    "start": "node index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "mysql": "^2.15.0",
     "request": "^2.83.0"
   }
 }

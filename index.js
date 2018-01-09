@@ -1,5 +1,6 @@
 var request = require('request').defaults({forever: true });;
 var http = require("http");
+var mysql = require('mysql');
 var stops = {'>' : {'a' : 1 ,'b' : 9},'<' : {'a' : 1.8,'b' : 8.5}};
 var lap = {};
 var laps = [];
@@ -22,45 +23,66 @@ var options = {
 	'Accept-Language': 'ru,en-US;q=0.9,en;q=0.8,de;q=0.7,uk;q=0.6'
   }
 };
-var respData = "";
-var respLog ="";
-laps.forEach(function(lap){respData+="<p>"+lap.time+"</p>"});
-//logs.slice(Math.max(logs.length - 5, 1)).forEach(function(log){
-//respLog+=log[i]
-//});
-var respBody = 
-'<!DOCTYPE html>'+
-'<html lang="en">'+
-'<head>'+
-'    <meta charset="UTF-8" />'+
-'    <title>Bus 37 time tracking</title>'+
-'</head>'+
-'<body>'+
-'<h1>Bus 37 time tracking</h1>'+ respData +
-'    <table>'+
-'    <tr>'+
-'        <td></td>'+
-'    </tr>'+
-'    </table>'+
-'</body>'+
-'</html>';
+var dbHost, dbUser, dbPass, dbName;
+process.env.DB_HOST ? dbHost = process.env.DB_HOST : dbHost = 'localhost';
+process.env.DB_USER ? dbUser = process.env.DB_USER : dbUser = 'root';
+process.env.DB_PASS ? dbPass = process.env.DB_PASS : dbPass = '';
+process.env.DB_NAME ? dbName = process.env.DB_NAME : dbName = 'bus';
+console.log('host:'+dbHost+' user: '+dbUser+' db:'+dbName+' pass:'+!!dbPass);
+
+var respBody = function(){
+
+    var txt = "";
+
+    lapInArr = function(lap){
+
+        txt+="<p>"+dtToStr(new Date())+" | ";
+        txt+=lap.aPoint.v_n+" | ";
+        lap.aPoint.d_n == 1 ? txt+="< | " :txt+="> | ";
+        txt+=dtToStr(new Date(lap.aPoint.d_ts*1000))+" | ";
+        txt+=sec(lap.time)+" | ";
+        txt+=lap.aPoint.dis+" | ";
+        txt+=lap.aPoint.dis+"</p>";
+
+    };
+
+    laps.forEach(lapInArr);
+
+    return '<!DOCTYPE html>'+
+        '<html lang="en">'+
+        '<head>'+
+        '    <meta charset="UTF-8" />'+
+        '    <title>Bus 37 time tracking</title>'+
+        '</head>'+
+        '<body>'+
+        '<h1>Bus 37 time tracking</h1>'+
+        '<div id="log">'+ txt + '</div>';
+        '</body>'+
+        '</html>';
+};
 
 var server = http.createServer(function(request, response) {
+  
   response.writeHead(200, {"Content-Type": "text/html"});
-  response.write(respBody);
+  response.write(respBody(laps));
   response.end();
+
 });
+
 server.listen(8080);
 
+//Looping requests to the GPS site
 request(options, callback);
 
 setInterval(function(){
+
     request(options, callback);//.on('error', function(e){console.log(e) }).end();
+
    }, 30000);
 
 function callback(error, response, body) {
   
-  var dn, vn, dis, lt, ln, t, tds, bs, gps, param;
+  var dn, vn, dis, tds, gps, param, bus37;
 
   if (!error && response.statusCode == 200) {
     
@@ -79,53 +101,70 @@ function callback(error, response, body) {
 
     if(gps){
 
-    for(bus in gps[242]){
+    //console.log(gps);
+    //bus37 = gps[242];
+
+    bus = gps[242];
+
+    for(i in bus){
 
         var msg = "";
-        bs = gps[242][bus];
-    	dn = (bs['d_n']==1)?'<':'>';
-    	vn = bs['v_n'];
-    	dis = bs['dis'];
-        tds = bs['d_ts'];
+        
+    	dn  = (bus[i]['d_n']==1)?'<':'>';
+    	vn  = bus[i]['v_n'];
+    	dis = bus[i]['dis'];
+        dts = bus[i]['d_ts'];
     	
             if(!lap[vn])lap[vn] = {};
-    		msg = vn+" "+dn+" "+dis;
-    		if(lap[vn].aState){
-                msg+=" From: "+lap[vn].aState.dis;
-                msg+=" Time: "+sec((tds-lap[vn].aState.d_ts)*1000);
-                msg+=" Dist: "+r4((dis-lap[vn].aState.dis));
+
+    		msg = vn + " " + dn + " " + dis;
+
+    		if(lap[vn].aPoint){
+                msg+=" From: "+lap[vn].aPoint.dis;
+                msg+=" Time: "+sec((dts-lap[vn].aPoint.d_ts)*1000);
+                msg+=" Dist: "+r4((dis-lap[vn].aPoint.dis));
             };
+
             log(msg);
-    		if(!lap[vn].aState){
+    		
+            if(!lap[vn].aPoint){
     			if((dis >= stops[dn].a)&&(dis < stops[dn].b)){
-    				lap[vn].aState = {};
-    				for(param in gps[242][bus]){
-    					lap[vn].aState[param] = gps[242][bus][param];
-                        //log("aState Add "+param+": "+gps[242][bus][param])
+    				lap[vn].aPoint = {};
+    				for(param in bus[i]){
+    					lap[vn].aPoint[param] = bus[i][param];
+                        //log("aPoint Add "+param+": "+bus[i][param])
     				}
-    				log(vn+': aState added');
+    				log(vn+': aPoint added');
     			};
-    		} else if(bs['d_n'] !== lap[vn].aState.d_n){
-                log(vn+' NULL aState');
-                lap[vn].aState = null; //remove aState if bState in that direction didn't happen
-            } else if(!lap[vn].bState){
+    		} else if(bus[i]['d_n'] !== lap[vn].aPoint.d_n){
+                log(vn+' NULL aPoint');
+                lap[vn].aPoint = null; //remove aPoint if bPoint in that direction didn't happen
+            } else if(!lap[vn].bPoint){
     			if(dis >= stops[dn].b){
-    				if(!lap[vn].bState)lap[vn].bState = {};
-    				for(param in gps[242][bus]){
-    					lap[vn].bState[param] = gps[242][bus][param];
+    				if(!lap[vn].bPoint)lap[vn].bPoint = {};
+    				for(param in bus[i]){
+    					lap[vn].bPoint[param] = bus[i][param];
     				}
-                    lap[vn].time = lap[vn].bState.d_ts - lap[vn].aState.d_ts;
+                    lap[vn].time = lap[vn].bPoint.d_ts - lap[vn].aPoint.d_ts;
     				laps.push(lap[vn]);
-                    console.log("\x1b[32m%s\x1b[0m","---------------------------");
-                    log(vn+': bState added ');
-                    msg = new Date().toTimeString().slice(0,8)+" ";
+                    laps=laps.slice(-100);
+                    log(vn+': bPoint added ');
+                    msg = dtToStr(new Date())+" ";
                     msg += vn+" "+dn;
-                    msg +=" at:"+(new Date(lap[vn].aState.d_ts*1000)).toTimeString().slice(0,8);
+                    msg +=" at:"+(new Date(lap[vn].aPoint.d_ts*1000)).toTimeString().slice(0,8);
                     msg +=" TIME: "+sec(lap[vn].time);
-                    msg +=" From:"+lap[vn].aState.dis;
-                    msg +=" to:"+lap[vn].bState.dis;
+                    msg +=" From:"+lap[vn].aPoint.dis;
+                    msg +=" to:"+lap[vn].bPoint.dis;
                     console.log("\x1b[32m%s\x1b[0m",msg);
-                    console.log("\x1b[32m%s\x1b[0m","---------------------------");
+                    
+                    addRec({'dt': new Date(), 
+                            'vn': vn, 
+                            'dn': dn , 
+                            'dt_a': new Date(lap[vn].aPoint.d_ts*1000), 
+                            't_lap': lap[vn].time, 
+                            'from_dis': lap[vn].aPoint.dis, 
+                            'to_dis': lap[vn].bPoint.dis});
+                    
                     lap[vn]={};
     			}
     		}
@@ -133,8 +172,10 @@ function callback(error, response, body) {
     }
 	}
   } else {
+
   	 if(error)console.log(error);
   	 if(body)console.log(body);
+  
   }
 };
 
@@ -194,17 +235,96 @@ MouseEnter = function(a) {
 };
 
 function log(msg){
-    var t = new Date().toTimeString().slice(0,8);
-    //dconsole.log(t+"  "+msg);
+    var t = dtToStr(new Date());
+    //console.log(t+"  "+msg);
     //logs.push(t+"  "+msg);
 };
 
 function r4(n){
-return Math.round((n*10000))/10000
+    return Math.round((n*10000))/10000
 };
 
 function sec(sec){
     var date = new Date(null);
     date.setSeconds(sec); // specify value for SECONDS here
     return date.toISOString().substr(11, 8);    
-}
+};
+
+function dtToStr(dt){
+    
+    return  dt.getFullYear().toString().slice(2) + 
+    '/' + ('0' + (dt.getMonth() + 1)).slice(-2) + 
+    '/' + ('0' + dt.getDate()).slice(-2) +
+    ' ' + ('0' + dt.getHours()).slice(-2) +
+    ':' + ('0' + dt.getMinutes()).slice(-2) +
+    ':' + ('0' + dt.getSeconds()).slice(-2);
+
+};
+
+function addRec(rec){
+    var con = mysql.createConnection({
+      host: dbHost,
+      user: dbUser,
+      password: dbPass,
+      database: dbName
+    });
+
+    sqlText = 'INSERT INTO bustime (dt, vn, dn, dt_a, t_lap, from_dis, to_dis) VALUES (';
+    sqlText += '"'+rec.dt.toJSON()+'",';
+    sqlText += '"'+rec.vn+'",';
+    sqlText += '"'+rec.dn+'",';
+    sqlText += '"'+rec.dt_a.toJSON()+'",';
+    sqlText += '"'+rec.t_lap+'",';
+    sqlText += '"'+rec.from_dis+'",';
+    sqlText += '"'+rec.to_dis+'"';
+    sqlText += ')';
+    //console.log(sqlText);
+
+    con.query(sqlText, function (error, results, fields) {
+        if (error) log(error);
+    });
+
+    con.end();
+
+};
+
+/*
+{ '242':
+   [ { s_c: 'OK',
+       r_i: 242,
+       s: 'OK',
+       lt: 50.4104,
+       ln: 30.2367,
+       p_lt: 50.420455,
+       p_ln: 30.246701,
+       hc: 1,
+       wf: 0,
+       d_n: 1,
+       d_s: 'ж/м Зах?дний',
+       v_i: 171,
+       v_n: '8514',
+       t_p_i: 175,
+       f_d: 1,
+       dis: 8.72,
+       p_ts: 1515437462,
+       d_ts: 1515437456 },
+     { s_c: 'OK',
+       r_i: 242,
+       s: 'OK',
+       lt: 50.411,
+       ln: 30.3436,
+       p_lt: 50.411001,
+       p_ln: 30.323699,
+       hc: 1,
+       wf: 0,
+       d_n: 2,
+       d_s: 'ст. м. Святошин ',
+       v_i: 1306,
+       v_n: '4501',
+       t_p_i: 181,
+       f_d: 1,
+       dis: 8.5722,
+       p_ts: 1515437462,
+       d_ts: 1515437456 } ],
+  date_time: 1515437543 }
+  */
