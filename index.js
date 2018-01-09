@@ -24,10 +24,10 @@ var options = {
   }
 };
 var dbHost, dbUser, dbPass, dbName;
-process.env.DB_HOST ? dbHost = process.env.DB_HOST : dbHost = 'localhost';
-process.env.DB_USER ? dbUser = process.env.DB_USER : dbUser = 'root';
-process.env.DB_PASS ? dbPass = process.env.DB_PASS : dbPass = '';
-process.env.DB_NAME ? dbName = process.env.DB_NAME : dbName = 'bus';
+process.env.OPENSHIFT_MYSQL_DB_HOST ? dbHost = process.env.OPENSHIFT_MYSQL_DB_HOST : dbHost = 'localhost';
+process.env.MYSQL_USER ? dbUser = process.env.MYSQL_USER : dbUser = 'root';
+process.env.MYSQL_PASSWORD ? dbPass = process.env.MYSQL_PASSWORD : dbPass = '';
+process.env.MYSQL_DATABASE ? dbName = process.env.MYSQL_DATABASE : dbName = 'bus';
 console.log('host:'+dbHost+' user: '+dbUser+' db:'+dbName+' pass:'+!!dbPass);
 
 var respBody = function(){
