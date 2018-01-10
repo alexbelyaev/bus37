@@ -253,18 +253,12 @@ function addRec(rec){
       database: dbName
     });
 
-    sqlText = 'INSERT INTO bustime (dt, vn, dn, dt_a, t_lap, from_dis, to_dis) VALUES (';
-    sqlText += '"'+rec.dt.toJSON()+'",';
-    sqlText += '"'+rec.vn+'",';
-    sqlText += '"'+rec.dn+'",';
-    sqlText += '"'+rec.dt_a.toJSON()+'",';
-    sqlText += '"'+rec.t_lap+'",';
-    sqlText += '"'+rec.from_dis+'",';
-    sqlText += '"'+rec.to_dis+'"';
-    sqlText += ')';
-    log(sqlText);
+    var sqlText = 'INSERT INTO bustime (dt, vn, dn, dt_a, t_lap, from_dis, to_dis) VALUES (?,?,?,?,?,?,?)';
+    var values = [rec.dt,rec.vn,rec.dn,rec.dt_a,rec.t_lap,rec.from_dis,rec.to_dis];
 
-    con.query(sqlText, function (error, results, fields) {
+    log(values);
+
+    con.query(sqlText, values, function (error, results, fields) {
         if (error) log(error);
     });
 
