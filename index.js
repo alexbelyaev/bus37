@@ -31,7 +31,7 @@ process.env.MYSQL_DATABASE ? dbName = process.env.MYSQL_DATABASE : dbName = 'bus
 console.log('host:'+dbHost+' user: '+dbUser+' db:'+dbName+' pass:'+!!dbPass);
 
 var pageTpl = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />'+
-'<title>Bus 37 time tracking</title></head><body><h1>Bus 37 time tracking</h1>'+
+'<title>Bus 37 time tracking</title></head><body><h1>Bus 37 time tracking. 1</h1>'+
 '<div id="log">[body]</div></body></html>';
 
 
