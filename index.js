@@ -30,41 +30,19 @@ process.env.MYSQL_PASSWORD ? dbPass = process.env.MYSQL_PASSWORD : dbPass = '';
 process.env.MYSQL_DATABASE ? dbName = process.env.MYSQL_DATABASE : dbName = 'bus';
 console.log('host:'+dbHost+' user: '+dbUser+' db:'+dbName+' pass:'+!!dbPass);
 
-var respBody = function(){
+var pageTpl = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />'+
+'<title>Bus 37 time tracking</title></head><body><h1>Bus 37 time tracking</h1>'+
+'<div id="log">[body]</div></body></html>';
 
-    var txt = "";
-
-    lapInArr = function(lap){
-
-        txt+="<p>"+dtToStr(new Date())+" | ";
-        txt+=lap.aPoint.v_n+" | ";
-        lap.aPoint.d_n == 1 ? txt+="< | " :txt+="> | ";
-        txt+=dtToStr(new Date(lap.aPoint.d_ts*1000))+" | ";
-        txt+=sec(lap.time)+" | ";
-        txt+=lap.aPoint.dis+" | ";
-        txt+=lap.aPoint.dis+"</p>";
-
-    };
-
-    laps.forEach(lapInArr);
-
-    return '<!DOCTYPE html>'+
-        '<html lang="en">'+
-        '<head>'+
-        '    <meta charset="UTF-8" />'+
-        '    <title>Bus 37 time tracking</title>'+
-        '</head>'+
-        '<body>'+
-        '<h1>Bus 37 time tracking</h1>'+
-        '<div id="log">'+ txt + '</div>';
-        '</body>'+
-        '</html>';
-};
 
 var server = http.createServer(function(request, response) {
   
   response.writeHead(200, {"Content-Type": "text/html"});
-  response.write(respBody(laps));
+
+  //log('request URL /log: '+(request.url=="\/log"));
+
+  if(request.url=="\/log") response.write(pgLog(logs)); else
+    response.write(pgLap(laps));
   response.end();
 
 });
@@ -102,7 +80,6 @@ function callback(error, response, body) {
     if(gps){
 
     //console.log(gps);
-    //bus37 = gps[242];
 
     bus = gps[242];
 
@@ -132,7 +109,6 @@ function callback(error, response, body) {
     				lap[vn].aPoint = {};
     				for(param in bus[i]){
     					lap[vn].aPoint[param] = bus[i][param];
-                        //log("aPoint Add "+param+": "+bus[i][param])
     				}
     				log(vn+': aPoint added');
     			};
@@ -173,8 +149,8 @@ function callback(error, response, body) {
 	}
   } else {
 
-  	 if(error)console.log(error);
-  	 if(body)console.log(body);
+  	 if(error){console.log(error); log(error)};
+  	 if(body){console.log(body);log(body)};
   
   }
 };
@@ -237,7 +213,8 @@ MouseEnter = function(a) {
 function log(msg){
     var t = dtToStr(new Date());
     //console.log(t+"  "+msg);
-    //logs.push(t+"  "+msg);
+    logs.push(t+": "+msg);
+    logs = logs.slice(-200);
 };
 
 function r4(n){
@@ -261,6 +238,13 @@ function dtToStr(dt){
 
 };
 
+function hhmm(dt){
+    
+    return ('0' + dt.getHours()).slice(-2) +
+    ':' + ('0' + dt.getMinutes()).slice(-2);
+
+};
+
 function addRec(rec){
     var con = mysql.createConnection({
       host: dbHost,
@@ -278,13 +262,46 @@ function addRec(rec){
     sqlText += '"'+rec.from_dis+'",';
     sqlText += '"'+rec.to_dis+'"';
     sqlText += ')';
-    //console.log(sqlText);
+    log(sqlText);
 
     con.query(sqlText, function (error, results, fields) {
         if (error) log(error);
     });
 
     con.end();
+
+};
+
+function pgLap(laps){
+    var laps = laps;
+    var txt = '';
+
+    lapInArr = function(lap){
+
+        txt+="<p>"+dtToStr(new Date(lap.bPoint.d_ts*1000))+" | ";
+        txt+=lap.aPoint.v_n+" | ";
+        lap.aPoint.d_n == 1 ? txt+="< | " :txt+="> | ";
+        txt+=hhmm(new Date(lap.aPoint.d_ts*1000))+" | ";
+        txt+=sec(lap.time)+" | ";
+        txt+=lap.aPoint.dis+" | ";
+        txt+=lap.bPoint.dis+"</p>";
+
+    }
+    
+    laps.forEach(lapInArr);
+
+    return pageTpl.replace(/\[body\]/, txt);
+
+};
+
+function pgLog(logs){
+
+    var logs = logs;
+    var txt = '';
+
+    logs.forEach(function(msg, i){txt+='<p>'+(i+1)+': '+msg+'</p>'});
+
+    return pageTpl.replace(/\[body\]/, txt);
 
 };
 
