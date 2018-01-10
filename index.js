@@ -268,7 +268,7 @@ function addRec(rec){
 
 function pgLap(laps){
     var laps = laps;
-    var txt = '<h2>time : bus : direction : at : lap time : from dis : to dis</h2>';
+    var txt = '<strong>time : bus : direction : at : lap time : from dis : to dis</strong>';
 
     lapInArr = function(lap){
 
@@ -291,7 +291,7 @@ function pgLap(laps){
 function pgLog(logs){
 
     var logs = logs;
-    var txt = '<h2>logs</h2>';
+    var txt = '<strong>logs</strong>';
 
     logs.forEach(function(msg, i){txt+='<p>'+(i+1)+': '+msg+'</p>'});
 
