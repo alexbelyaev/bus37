@@ -99,7 +99,7 @@ function callback(error, response, body) {
     		if(lap[vn].aPoint){
                 msg+=" From: "+lap[vn].aPoint.dis;
                 msg+=" Time: "+sec((dts-lap[vn].aPoint.d_ts)*1000);
-                msg+=" Dist: "+r4((dis-lap[vn].aPoint.dis));
+                msg+=" Dist: "+r3((dis-lap[vn].aPoint.dis));
             };
 
             log(msg);
@@ -137,7 +137,7 @@ function callback(error, response, body) {
                             'vn': vn, 
                             'dn': dn , 
                             'dt_a': new Date(lap[vn].aPoint.d_ts*1000), 
-                            't_lap': lap[vn].time, 
+                            't_lap': sec(lap[vn].time), 
                             'from_dis': lap[vn].aPoint.dis, 
                             'to_dis': lap[vn].bPoint.dis});
                     
@@ -217,8 +217,8 @@ function log(msg){
     logs = logs.slice(-200);
 };
 
-function r4(n){
-    return Math.round((n*10000))/10000
+function r3(n){
+    return Math.round((n*1000))/1000
 };
 
 function sec(sec){
