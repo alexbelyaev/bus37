@@ -1,7 +1,7 @@
 var request = require('request').defaults({forever: true });;
 var http = require("http");
 var mysql = require('mysql');
-var stops = {'>' : {'a' : 1 ,'b' : 9},'<' : {'a' : 1.8,'b' : 8.5}};
+var stops = {'>' : {'a' : 1.28 ,'b' : 8.3}, '<' : {'a' : 1.78,'b' : 9}};
 var lap = {};
 var laps = [];
 var logs = [];
@@ -338,4 +338,13 @@ function pgLog(logs){
        p_ts: 1515437462,
        d_ts: 1515437456 } ],
   date_time: 1515437543 }
+
+
+stops
+>0.68 kp1, 1.2931 budar
+>8.3016 zhit
+<1,7843 zhit
+<9.04 budar
+<9.29 kp1
+
   */
