@@ -1,10 +1,16 @@
 var request = require('request').defaults({forever: true });;
-var http = require("http");
+var http = require('http');
 var mysql = require('mysql');
+var fs = require('fs');
+//Distances where we start tracking time in each directions
 var stops = {'>' : {'a' : 1.28 ,'b' : 8.3}, '<' : {'a' : 1.78,'b' : 9}};
+//Storage for bus points A and B
 var lap = {};
+//Storage of laps
 var laps = [];
-var logs = [];
+//debuggin logs
+var logs = []; 
+//request to the server for bus GPS data
 var options = {
   url: 'https://www.eway.in.ua/ajax/getGpsData.php?city_key=kyiv&lang_key=ua&route_id=242',
   method: 'post',
@@ -23,6 +29,7 @@ var options = {
 	'Accept-Language': 'ru,en-US;q=0.9,en;q=0.8,de;q=0.7,uk;q=0.6'
   }
 };
+//mysql connection
 var dbHost, dbUser, dbPass, dbName;
 process.env.OPENSHIFT_MYSQL_DB_HOST ? dbHost = process.env.OPENSHIFT_MYSQL_DB_HOST : dbHost = 'localhost';
 process.env.MYSQL_USER ? dbUser = process.env.MYSQL_USER : dbUser = 'root';
@@ -30,32 +37,54 @@ process.env.MYSQL_PASSWORD ? dbPass = process.env.MYSQL_PASSWORD : dbPass = '';
 process.env.MYSQL_DATABASE ? dbName = process.env.MYSQL_DATABASE : dbName = 'bus';
 console.log('host:'+dbHost+' user: '+dbUser+' db:'+dbName+' pass:'+!!dbPass);
 
-var pageTpl = '<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8" />'+
-'<title>Bus 37 time tracking</title></head><body><h1>Bus 37 time tracking. 1</h1>'+
-'<div id="log">[body]</div></body></html>';
+// Path and templates files
+var tpl = ['./tpl/','index.html','main.css','script.js','traf.jpeg']; 
+//array of files content
+var f = [];
+
+//loading template file contents
+f["index.html"] = fs.existsSync(tpl[0]+tpl[1])
+    ? fs.readFileSync(tpl[0]+tpl[1], 'utf8') : 'index.html file missing';
+
+f["main.css"] = fs.existsSync(tpl[0]+tpl[2])
+    ? fs.readFileSync(tpl[0]+tpl[2], 'utf8') : 'main.css file missing';
+
+f["script.js"] = fs.existsSync(tpl[0]+tpl[3])
+    ? fs.readFileSync(tpl[0]+tpl[3], 'utf8') : 'script.js file missing';
+
+f["traf.jpeg"] = fs.existsSync(tpl[0]+tpl[4])
+    ? fs.readFileSync(tpl[0]+tpl[4]) : 'bg photo file missing';
 
 
+//Server response configuration
 var server = http.createServer(function(request, response) {
-  
-  response.writeHead(200, {"Content-Type": "text/html"});
-
   //log('request URL /log: '+(request.url=="\/log"));
-
-  if(request.url=="\/log") response.write(pgLog(logs)); else
-    response.write(pgLap(laps));
+  if(request.url=='/log') {
+    response.writeHead(200, {"Content-Type": "text/html"});
+    response.write(pgLog(logs, f['index.html']));} 
+  else if (request.url=='/main.css') {
+    response.writeHead(200, {"Content-Type": "text/css"});
+    response.write(f['main.css']);}
+  else if (request.url=='/script.js') {
+    response.writeHead(200, {"Content-Type": "application/javascript"});
+    response.write(f['script.js']);}
+  else if (request.url=='/traf.jpeg') {
+    response.writeHead(200, {"Content-Type": "image/jpeg"});
+    response.write(f['traf.jpeg']);}
+  else  {
+    response.writeHead(200, {"Content-Type": "text/html"});
+    response.write(pgLap(laps, f['index.html']));
+    }
   response.end();
-
 });
 
+//Start server
 server.listen(8080);
 
 //Looping requests to the GPS site
 request(options, callback);
-
 setInterval(function(){
-
     request(options, callback);//.on('error', function(e){console.log(e) }).end();
-
    }, 30000);
 
 function callback(error, response, body) {
@@ -123,7 +152,7 @@ function callback(error, response, body) {
     				}
                     lap[vn].time = lap[vn].bPoint.d_ts - lap[vn].aPoint.d_ts;
     				laps.push(lap[vn]);
-                    laps=laps.slice(-100);
+                    laps=laps.slice(-250);
                     log(vn+': bPoint added ');
                     msg = dtToStr(new Date())+" ";
                     msg += vn+" "+dn;
@@ -138,8 +167,8 @@ function callback(error, response, body) {
                             'dn': dn , 
                             'dt_a': new Date(lap[vn].aPoint.d_ts*1000), 
                             't_lap': sec(lap[vn].time), 
-                            'from_dis': lap[vn].aPoint.dis, 
-                            'to_dis': lap[vn].bPoint.dis});
+                            'from_dis': r3(lap[vn].aPoint.dis), 
+                            'to_dis': r3(lap[vn].bPoint.dis)});
                     
                     lap[vn]={};
     			}
@@ -155,6 +184,7 @@ function callback(error, response, body) {
   }
 };
 
+//decoding GPS data function
 MouseEnter = function(a) {
     var f = 0,
         e = 0,
@@ -214,7 +244,7 @@ function log(msg){
     var t = dtToStr(new Date());
     //console.log(t+"  "+msg);
     logs.push(t+": "+msg);
-    logs = logs.slice(-200);
+    logs = logs.slice(-250);
 };
 
 function r3(n){
@@ -266,19 +296,28 @@ function addRec(rec){
 
 };
 
-function pgLap(laps){
+function pgLap(laps, pageTpl){
+    var pageTpl = pageTpl;
     var laps = laps;
-    var txt = '<strong>time : bus : direction : at : lap time : from dis : to dis</strong>';
+    var txt = '';
+    var label = '';
 
     lapInArr = function(lap){
 
-        txt+="<p>"+dtToStr(new Date(lap.bPoint.d_ts*1000))+" | ";
-        txt+=lap.aPoint.v_n+" | ";
-        lap.aPoint.d_n == 1 ? txt+="< | " :txt+="> | ";
-        txt+=hhmm(new Date(lap.aPoint.d_ts*1000))+" | ";
-        txt+=sec(lap.time)+" | ";
-        txt+=lap.aPoint.dis+" | ";
-        txt+=lap.bPoint.dis+"</p>";
+        label = '';
+        if(lap.time / 60 > 17) label = ' class="alert1" ';
+        if(lap.time / 60 > 25) label = ' class="alert2" ';
+        if(lap.time / 60 > 35) label = ' class="alert3" ';
+
+        txt+='        <tr'+label+'>\r\n';
+        txt+='           <td width="125">'+dtToStr(new Date(lap.bPoint.d_ts*1000))+'</td>\r\n';
+        txt+='           <td width="35">'+lap.aPoint.v_n+'</td>\r\n';
+        txt+='           <td width="45" class="bg1">'+(lap.aPoint.d_n == 1 ? "&lt" : "&gt")+'</td>\r\n';
+        txt+='           <td width="40" class="bg1">'+hhmm(new Date(lap.aPoint.d_ts*1000))+'</td>\r\n';
+        txt+='           <td width="60" class="bg1 laptime">'+sec(lap.time)+'</td>\r\n';
+        txt+='           <td width="35">'+r3(lap.aPoint.dis)+'</td>\r\n';
+        txt+='           <td width="35">'+r3(lap.bPoint.dis)+'</td>\r\n';
+        txt+='        </tr>\r\n';
 
     }
     
@@ -288,8 +327,8 @@ function pgLap(laps){
 
 };
 
-function pgLog(logs){
-
+function pgLog(logs, pageTpl){
+    var pageTpl = pageTpl;
     var logs = logs;
     var txt = '<strong>logs</strong>';
 
@@ -300,6 +339,8 @@ function pgLog(logs){
 };
 
 /*
+Example data resived from the GPS server
+
 { '242':
    [ { s_c: 'OK',
        r_i: 242,
@@ -340,11 +381,12 @@ function pgLog(logs){
   date_time: 1515437543 }
 
 
-stops
->0.68 kp1, 1.2931 budar
->8.3016 zhit
-<1,7843 zhit
-<9.04 budar
-<9.29 kp1
+//stops distance mesurements
 
-  */
+>0.68 KP1, 1.2931 Budarina
+>8.3016 Zhitomirska
+<1,7843 Zhitomirska
+<9.04 Budarina
+<9.29 KP1
+
+*/
