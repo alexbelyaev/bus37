@@ -111,6 +111,8 @@ function callback(error, response, body) {
     //console.log(gps);
 
     bus = gps[242];
+	
+	//console.log(bus);
 
     for(i in bus){
 
